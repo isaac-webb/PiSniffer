@@ -108,13 +108,173 @@ section instead.
 
 ### PCB Take Two: Ethernet Breakouts
 
+To both reduce manufacturing time and make our design more versatile for
+prototyping, we opted for the following breakout board design:
+
 ![Custom Ethernet modules](https://github.com/isaac-webb/PiSniffer/raw/master/docs/pisniffermodule_no_planes.png)
+
+This breakout simply provides easy access to the chip's SPI interface and a few
+other necessary pins. This design also contains far more resistors and
+capacitors next to the Ethernet jack. These are the impedance matching and
+filtering components that the chip's datasheet recommends. We included these in
+hopes of our board working (adhering to the datasheet is often a safe way to
+ensure proper operation).
 
 ### Mbed Ethernet Tap
 
+Unforunately, these breakout boards did not work as expected, so it is
+necessary to explain one more hardware configuration that we ended up using in
+our final demos.
+
 ![Ethernet tapping with mbeds](https://github.com/isaac-webb/PiSniffer/raw/master/docs/ethernet_tapping.png)
 
+Somewhat similar to the completely passive Ethernet tap described in the
+introduction, this hardware configuration consists of two mbed devices
+listening to traffic passing between two Ethernet jacks. These jacks are
+transparent to the devices connected by them, but they allow the mbeds to
+observe any and all data traveling on the line, which they then send to the
+Raspberry Pi to process using `tshark`. This configuration is nothing more than
+two Ethernet jacks, two mbeds, and some wiring in between, and it allowed us
+to demonstrate the concept we were aiming to implement as closely as possible.
+
 ## Code
+
+While our code would have been much more complicated if our hardware designs
+had functioned properly, there was still a significant amount of effort
+expended in developing code that provided the greatest flexibility.
+
+### ENC424J600 Library/Driver
+
+To facilitate interfacing with the Ethernet controller, we developed a library
+that allowed us to treat the controller like a C++ object. Additionally, we
+included several constants and bitmasks that made the code much more readable
+for potential developers. An example of a member function we wrote and driver
+using it are below (full source is included in the repository).
+
+#### ENC424J600 SPI Interface
+
+It is worth noting that this chip has a very unique way of transferring data.
+To reduce SPI traffic, it allows addressing registers using a "banked" address.
+To read from a register, you must first switch to the proper bank and then read
+from the register's address. This may seem more complicated, but it allows only
+1 byte to be transferred to the chip to tell it to perform a read operation and
+where to read from.
+
+Additionally, the chip uses an interesting system of "pointer" registers and
+data registers that allow it to operate entirely in its own address space using
+on-chip SRAM. To write data to the chip, you must first set the write pointer
+to the desired address in SRAM, then write the data you wish to write into the
+corresponding write register. Unfortunately, we were unable to get the chip to
+respond to read/write operations dealing with SRAM, possibly due to a defect or
+due to damage done to the chip while assembling/learning how it operates.
+
+#### Library Member Function Example
+
+This function reads a byte from the provided register and stores the result in
+the character `*val` passed in as a parameter.
+
+```c
+// Reads 1 byte from the provided banked control register
+int ENCX24J600::read_control_register_banked(uint8_t regno, char *val) {
+    char tx_buf[2];
+    char rx_buf[2];
+
+    // Write the read command
+    tx_buf[0] = RCR | regno;
+    tx_buf[1] = 0;
+
+    int ret;
+    if ((ret = spiXfer(handle, tx_buf, rx_buf, 2)) < 0) {
+        return ret;
+    }
+
+    *val = rx_buf[1];
+
+    return 0;
+}
+```
+
+#### Library Driver Example
+
+This example uses the function above to write a value to a control register and
+read it to verify that the SPI bus is functioning properly before the program
+continues executing.
+
+```c
+// Wait for the SPI bus to stabilize
+printf("Writing 0x1234 to EUDAST\n");
+enc.select_bank(0);
+char high;
+char low;
+do {
+    enc.write_control_register_banked(EUDASTL, 0x34);
+    enc.write_control_register_banked(EUDASTH, 0x12);
+    enc.read_control_register_banked(EUDASTL, &low);
+    enc.read_control_register_banked(EUDASTH, &high);
+} while (high != 0x12 || low != 0x34);
+printf("SPI bus is active\n");
+```
+
+### Ethernet Tap Code
+
+While simpler, the Ethernet tapping code served two important purposes:
+
+1. Getting Ethernet data from the mbeds to the Pi.
+2. Taking hat Ethernet data and inserting it into the Linux networking stack
+   for later use with `tshark`.
+
+#### Mbed
+
+This code segment receives an Ethernet frame, sends its length over the USB
+serial interface so the host knows how much data to expect, and then sends the
+data itself.
+
+```c
+Serial pc(USBTX, USBRX, 115200);
+Ethernet eth;
+
+int main() {
+    char buf[0x600];
+    uint8_t len[2];
+    for (int i = 0; i < 0x600; ++i)
+        buf[i] = 0;
+
+    while(1) {
+        int size = eth.receive();
+        if(size > 0) {
+            eth.read(buf, size);
+            len[1] = ((uint16_t)size>>0x08) & 0xFF;
+            len[0] = (uint16_t)size & 0xFF;
+            pc.putc(len[0]);
+            pc.putc(len[1]);
+            pc.puts(buf);
+            for (int i = 0; i < 0x600; ++i)
+                buf[i] = 0;
+        }
+    }
+}
+```
+
+#### Pi
+
+This code segment reads in the data on the USB serial interface sent from the
+above code segment and forwards the packets onto a loopback interface that
+`tshark` can easily read from to process and analyze packets.
+
+```python
+device = serial.Serial('COM6', 115200)
+
+interface = IFACES.dev_from_index(5)
+socket = conf.L2socket(iface = interface)
+print(interface)
+
+while True:
+    len_bit_1 = device.read()
+    len_bit_2 = device.read()
+    len_msg = int.from_bytes(len_bit_1,'big') + int.from_bytes(len_bit_2,'big')
+    data = device.read(len_msg)
+    socket.send(data)
+```
 
 ## Results
 
@@ -123,16 +283,21 @@ the mbed side of our demo as well as the Pi side of our demo:
 
 ![Breadboard setup](https://github.com/isaac-webb/PiSniffer/raw/master/docs/setup.jpg)
 
-Unfortunately, due to the issues we struggled with above, we were unable to
-integrate the two pieces of our project. For this reason, we have included
-demos/documentation of both parts:
+Unfortunately, our breakout that we had intended to use for the entirety of the
+project did not function properly. While we were able to interface with the
+chip, the Ethernet jack did not respond to a cable being plugged into it,
+indicating that we likely made an error in our PCB design or used a jack with
+an incompatible magnetics configuration (there are different configurations
+based on bus speed, whether the jack supports PoE, etc.). Thus, we were unable
+to integrate the hardware and software pieces of our project. For this reason,
+we have included demos/documentation of both parts:
 
 1. Our custom Ethernet controller breakout board.
 2. Our `tshark` sniffing demo that uses two Ethernet ports, two mbeds, and a
    Raspberry Pi to get data off of the line.
 
 This indicates that, if we were able to overcome the aforementioned issues in
-the future, we should be able to combine them, resulting in our initial goal of
+the future, we should be able to combine them resulting in our initial goal of
 a flexible, elegant hardware man-in-the-middle device for the Pi.
 
 ### Hardware Demo
@@ -144,5 +309,5 @@ a flexible, elegant hardware man-in-the-middle device for the Pi.
 
 ### Software Demo
 
-<iframe width="1280" height="720" src="https://www.youtube.com/embed/qo8h67pPoVU" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-<iframe width="1280" height="720" src="https://www.youtube.com/embed/-2y3PTK_6E8" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/qo8h67pPoVU" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/-2y3PTK_6E8" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
