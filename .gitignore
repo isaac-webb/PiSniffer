@@ -1,0 +1,9 @@
+*.b#*
+*.s#*
+*.ulp
+*.epf
+*.log
+*.pptx
+*.doc
+.dropbox
+
