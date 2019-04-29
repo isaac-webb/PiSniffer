@@ -65,11 +65,23 @@ int main() {
     }
     printf("Reset successful!\n");
 
+    // Read the module's pre-programmed MAC address
+    char addr[6];
+    enc.select_bank(3);
+    enc.read_control_register_banked(MAADR1L, addr);
+    enc.read_control_register_banked(MAADR1H, addr + 1);
+    enc.read_control_register_banked(MAADR2L, addr + 2);
+    enc.read_control_register_banked(MAADR2H, addr + 3);
+    enc.read_control_register_banked(MAADR3L, addr + 4);
+    enc.read_control_register_banked(MAADR3H, addr + 5);
+    printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n", addr[5],
+           addr[4], addr[3], addr[2], addr[1], addr[0]);
+
     // Write the data into the on-chip SRAM
-    enc.write_data(data, len, 0x1000);
-    char read_data[64];
-    enc.read_data(read_data, len, 0x1000);
-    printf("Data read from SRAM: %s\n", read_data);
+    // enc.write_data(data, len, 0x10);
+    // char read_data[64];
+    // enc.read_data(read_data, len, 0x10);
+    // printf("Data read from SRAM: %s\n", read_data);
 
     // Clean up and terminate
     enc.close();

@@ -10,7 +10,7 @@ using namespace std;
 // Opens the SPI handle for later use
 ENCX24J600::ENCX24J600(unsigned channel, unsigned ce) {
 	// Open the SPI bus
-	handle = spiOpen(channel, 10000000, 0);
+	handle = spiOpen(channel, 1000000, 0);
 	
 	// Make sure we succeeded in opening the SPI channel
 	if (handle < 0) {
@@ -93,13 +93,6 @@ int ENCX24J600::write_data(char *data, uint16_t len,
 	command[0] = WGPWRPT;
 	command[1] = dst_addr & 0xFF;
 	command[2] = (dst_addr >> 8) & 0xFF;
-	if (spiWrite(handle, command, 3) != 3) {
-		return -1;
-	}
-	
-	command[0] = RGPWRPT;
-	command[1] = 0;
-	command[2] = 0;
 	if (spiWrite(handle, command, 3) != 3) {
 		return -1;
 	}

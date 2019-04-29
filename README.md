@@ -11,4 +11,4 @@ In this repository, you will find a few different things:
 * Python code to run on the Pi that waits for the mbed to send data over USB
   and forwards packets onto the loopback interface for analysis with `tshark`.
 
-More detailed documentation can be found [here]()
+More detailed documentation can be found [here](https://iwebb.me/PiSniffer/)

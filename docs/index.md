@@ -75,11 +75,35 @@ controller IC from Microchip. The reasons for this were simple:
 
 Being ambitious, we set out to make an all-in-one board that would slot right
 onto a Pi, adding two Ethernet ports with a bit of coding effort on our part;
-however, we found out quickly that time constraints would make this process
-difficult. After laying out our initial attempt and starting the fabrication
-process in the Hive, 
+however, we found out quickly that time constraints would make this difficult.
+After laying out our initial attempt and starting the fabrication process in
+the Hive, we realized that our assumptions about wiring the Ethernet controller
+were incorrect.
+
+#### Ethernet Magnetics
+
+To isolate devices and make the communication between devices more resistant to
+EMI, most Ethernet devices or jacks include some form of "magnetics," or a
+special configuration of transformers that simply allows the cable and the
+device to communicate but be electrically isolated. Our design utilizes
+"MagJacks" which incorporate the magnetics and the LEDs into the RJ-45 jack. We
+had initially assumed that we would be able to leave the center taps of the TX
+and RX transformers unconnected; however, after a more careful inspection of
+the datasheet, we realized that the controller induces voltages in these
+transformers by generating differential currents, not voltages. This meant that
+the connections to ground/3.3V that we omitted in the failed design below would
+make the device non-functional.
 
 ![Failed HAT PCB](https://github.com/isaac-webb/PiSniffer/raw/master/docs/failed_pcb.jpg)
+
+#### Theoretically Correct HAT Design
+
+Learning from our mistake, we corrected the HAT's schematic and board to
+include connections that allow *differential* currents to be induced in the
+Ethernet Magjack's included magnetics; however, we have **not** verified this
+design, as we opted to manufacture the Ethernet breakouts described in the next
+section instead.
+
 ![Theoretically functioning HAT](https://github.com/isaac-webb/PiSniffer/raw/master/docs/pisniffer.png)
 
 ### PCB Take Two: Ethernet Breakouts
@@ -119,3 +143,6 @@ a flexible, elegant hardware man-in-the-middle device for the Pi.
 ![Reading the MAC address, terminal output](https://github.com/isaac-webb/PiSniffer/raw/master/docs/mac_read_terminal.jpg)
 
 ### Software Demo
+
+<iframe width="1280" height="720" src="https://www.youtube.com/embed/qo8h67pPoVU" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="1280" height="720" src="https://www.youtube.com/embed/-2y3PTK_6E8" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
