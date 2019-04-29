@@ -302,12 +302,53 @@ a flexible, elegant hardware man-in-the-middle device for the Pi.
 
 ### Hardware Demo
 
+To prove that our library works (to an extent), we have included logic analyzer
+captures showing a quick initialization sequence, followed by a read of the
+chip's factory-programmed MAC address.
+
+#### EUDAST Power-on Sequence
+
+The datasheet recommends performing a few different steps to verify that the
+chip is ready to operate after powering on. The first two are:
+
+1. Write `0x1234` to `EUDAST`.
+2. Read `EUDAST`, repeating step 1 until reading shows `0x1234`.
+
+The following screen capture shows the Pi writing `0x12` and `0x34` to
+`EUDASTH` and `EUDASTL`, respectively.
+
 ![Writing to EUDAST](https://github.com/isaac-webb/PiSniffer/raw/master/docs/eudast_write.png)
+
+Shortly following this, the Pi reads those same two registers. The MISO line
+shows that the Ethernet controller did indeed change those registers' values.
+
 ![Verifying EUDAST](https://github.com/isaac-webb/PiSniffer/raw/master/docs/eudast_read.png)
+
+To show another set of registers functioning, we wrote a program that reads the
+chip's factory-programmed MAC address. Here you will see 7 distinct transfer
+groups (look at the SCK line). The first transfer tells the chip to select the
+register bank which contains the MAADR, followed by 6 reads which get the
+6-byte MAC address.
+
 ![Reading the MAC address, logic analyzer](https://github.com/isaac-webb/PiSniffer/raw/master/docs/mac_read.png)
+
+The values in the capture above do indeed match the output that we see from the
+program on the Pi:
+
 ![Reading the MAC address, terminal output](https://github.com/isaac-webb/PiSniffer/raw/master/docs/mac_read_terminal.jpg)
 
 ### Software Demo
 
+The following two videos are examples of what sorts of data can be expected off
+of the Ethernet tap. The first shows how insecure forms can reveal sensitive
+data. The second shows that you can see where and what devices are requesting
+on the Ethernet line, allowing activity analysis and pattern recognition later
+on if desired.
+
 <iframe width="560" height="315" src="https://www.youtube.com/embed/qo8h67pPoVU" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 <iframe width="560" height="315" src="https://www.youtube.com/embed/-2y3PTK_6E8" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+## Acknowledgements
+
+Much of this work was done in Georgia Tech's ECE 4180 lab. The hardware and
+software were developed by Isaac Webb and Elias Boyer.
