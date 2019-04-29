@@ -21,4 +21,4 @@ and our results.
 After all was said and done, we wound up with a breadboard that contained both
 the mbed side of our demo as well as the Pi side of our demo:
 
-![Breadboard setup](/docs/setup.jpg)
+![Breadboard setup](https://github.com/isaac-webb/PiSniffer/docs/setup.jpg)
