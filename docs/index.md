@@ -14,6 +14,20 @@ and our results.
 
 ## Hardware
 
+Since ECE 4180 is a class in embedded systems, we wanted to design a devices
+that could be used with either the LPC1768 mbed device or the Raspberry Pi. Due
+to its versatility and ability to run `tshark` and other analysis programs, we
+chose to make the Raspberry Pi the target device for this project (more on that
+later). While the Pi does have a single Ethernet port on-board, that doesn't
+allow the sniffing we desired, and it suffers from extremely limited
+documentation. Deciding, initially, that we wanted to design a HAT for the Pi
+that would add two Ethernet ports, enabling a man-in-the-middle attack, we set
+out to find the right hardware.
+
+### Ethernet Controller: ENC424J600
+
+
+
 ## Code
 
 ## Results
@@ -21,4 +35,4 @@ and our results.
 After all was said and done, we wound up with a breadboard that contained both
 the mbed side of our demo as well as the Pi side of our demo:
 
-![Breadboard setup](https://github.com/isaac-webb/PiSniffer/blob/master/docs/setup.jpg)
+![Breadboard setup](https://github.com/isaac-webb/PiSniffer/raw/master/docs/setup.jpg)
